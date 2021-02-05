@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/Necroforger/dgrouter/exrouter"
-	"time"
 )
 
 const COMMAND_PREFIX = "!"
@@ -21,6 +20,14 @@ func speechToText() exrouter.HandlerFunc {
 	return func(ctx *exrouter.Context) {
 		session := ctx.Ses
 		guildId := ctx.Msg.GuildID
+
+		makeContext(guildId)
+
+		if isTextToSpeechAlreadyActiveIn(guildId) {
+			markForDisconnect(guildId)
+			return
+		}
+
 		guild, err := session.State.Guild(guildId)
 
 		if err != nil {
@@ -28,24 +35,27 @@ func speechToText() exrouter.HandlerFunc {
 			return
 		}
 
-		voiceChannel := getVoiceChannelFor(guild, ctx.Msg)
+		voiceChannel := getVoiceChannelFor(guild, ctx.Msg.Author)
 
 		if voiceChannel == nil {
 			_, _ = ctx.Reply("You aren't currently in a voice channel!")
 			return
 		}
 
-		channelId := voiceChannel.ChannelID
+		voiceChannelId := voiceChannel.ChannelID
 
-		connection, err := joinVoiceChannel(session, guildId, channelId)
+		connection, err := connect(session, guildId, voiceChannelId, ctx.Msg.ChannelID)
 
-		if connection == nil || err != nil {
-			_, _ = ctx.Reply("Error connecting to voice channel!")
+		if err != nil {
+			_, _ = ctx.Reply("Error connecting to voice channel! | " + err.Error())
 			return
 		}
 
-		time.Sleep(500 * time.Millisecond)
-		_ = connection.Disconnect()
+		if connection == nil {
+			_, _ = ctx.Reply("Error connecting to voice channel! | Connection is null")
+		}
+
+		go listen(session, connection, guildId)
 
 		_, _ = ctx.Reply("You are currently in voice channel " + voiceChannel.ChannelID)
 	}

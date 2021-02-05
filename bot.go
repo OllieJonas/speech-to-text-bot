@@ -27,7 +27,7 @@ func (b *Bot) init() {
 	err = discordBot.Open()
 
 	if err != nil {
-		panic("Error opening connection! " + err.Error())
+		panic("Error opening Connection! " + err.Error())
 	}
 }
 
